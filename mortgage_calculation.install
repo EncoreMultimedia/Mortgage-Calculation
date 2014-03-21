@@ -1,0 +1,107 @@
+<?php
+
+
+/**
+ * Implements hook_install().
+ */
+function mortgage_calculation_install() {
+  $entity = entity_create('mortgage_calculation',
+    array(
+      'type' => 'mortgage_calculation',
+      'title' => 'Scenario One',
+      'loan_amount' => '200000',
+      'down_payment_percent' => '20',
+      'term' => '30',
+      'interest_rate' => '4.25',
+      'property_tax' => '3000',
+      'property_insurance' => '1500',
+      'pmi' => '0.52',
+      'zip' => '75662',
+      'first_payment' => date('Y-m'),
+      'loan_type' => 'mortgage',
+      ));
+  entity_save('mortgage_calculation', $entity);
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function mortgage_calculation_uninstall() {
+
+
+}
+
+function mortgage_calculation_schema() {
+  $schema['mortgage_calculation'] = array (
+    'description' => 'The main store for our entity',
+    'fields' => array(
+      'cid' => array(
+        'description' => 'Primary key for our table of mortgage calculations',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'loan_type' => array(
+        'description' => 'Type of Loan',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE
+      ),
+      'title' => array(
+        'description' => 'Title of the calculation',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE
+      ),
+      'loan_amount' => array(
+        'description' => 'Loan Amount',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'down_payment_percent' => array(
+        'description' => 'Down Payment Percentage',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'term' => array(
+        'description' => 'Term of the Loan',
+        'type' => 'int',
+        'not null' => TRUE
+      ),
+      'interest_rate' => array(
+        'description' => 'Interest Rate',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'property_tax' => array(
+        'description' => 'Property Tax per Year',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'property_insurance' => array(
+        'description' => 'Property Insurance per Year',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'pmi' => array(
+        'description' => 'PMI',
+        'type' => 'float',
+        'not null' => TRUE
+      ),
+      'zip' => array(
+        'description' => 'Zip Code',
+        'type' => 'int',
+        'not null' => TRUE
+      ),
+      'first_payment' => array(
+        'description' => 'First Payment Date',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE
+      ),
+    ),
+    'primary key' => array('cid'),
+  );
+
+  return $schema;
+}

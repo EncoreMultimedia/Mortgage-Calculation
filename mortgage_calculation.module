@@ -1,0 +1,497 @@
+<?php
+
+function mortgage_calculation_entity_info(){
+  $mortgage_calculation_info['mortgage_calculation'] = array(
+    'label' => t('Mortgage Calculation'),
+    'base table' => 'mortgage_calculation',
+    'controller class' => 'EntityAPIController',
+    'entity keys' => array(
+      'id' => 'cid',
+    ),
+  );
+
+  return $mortgage_calculation_info;
+}
+
+function mortgage_calculation_load($cid = NULL, $reset = FALSE){
+  $cids = (isset ($cid) ? array($cid) : array());
+  $mortgage_calculation = mortgage_calculation_load_multiple($cids, $reset);
+  return $mortgage_calculation ? reset ($mortgage_calculation) : FALSE;
+}
+
+function mortgage_calculation_load_multiple($cids = array(), $conditions = array(), $reset = FALSE){
+  return entity_load('mortgage_calculation', $cids, $conditions, $reset);
+}
+
+/**
+* Implementation of hook_block_info()
+*/
+function mortgage_calculation_block_info() {
+
+  $blocks['mortgage_calculation_calculator'] = array(
+    'info' => t('Mortgage Calculator'),
+    'cache' => DRUPAL_NO_CACHE,
+    'weight' => -11,
+    'status' => 1,
+    'region' => 'sidebar_first',
+    'pages' => "resources/loan-calculator\nresources/loan-calculator/*",
+    'visibility' => BLOCK_VISIBILITY_LISTED,
+  );
+
+  return $blocks;
+}
+
+/**
+* Implementation of hook_block_view()
+*/
+function mortgage_calculation_block_view($delta = '') {
+  $block = array();
+
+  switch ($delta) {
+
+    case 'mortgage_calculation_calculator':
+        $block['subject'] = t('Mortgage Calculator');
+        $form = drupal_get_form('mortgage_calculation_form');
+
+        $block['content'] = $form;
+      break;
+  }
+  return $block;
+}
+
+/*
+ * Form for a mortgage calculator
+ */
+function mortgage_calculation_form($node, &$form_state) {
+
+    if(arg(2)) {
+      $cid = arg(2);
+      $calculation = mortgage_calculation_load($cid);
+    }
+
+  $form['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Title'),
+    '#default_value' => (isset($calculation->title) ? $calculation->title : 'Scenario One'),
+    '#size' => 10,
+    '#maxlength' => 64,
+  );
+  $form['loan_amount'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Purchase Price'),
+    '#default_value' => (isset($calculation->loan_amount) ? $calculation->loan_amount : '200000'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('US Dollars'),
+  );
+  $form['down_payment_percent'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Down Payment'),
+    '#default_value' => (isset($calculation->down_payment_percent) ? $calculation->down_payment_percent : '20'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('% of Total Cost'),
+  );
+  $form['term'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mortgage Term'),
+    '#default_value' => (isset($calculation->term) ? $calculation->term : '30'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('Years'),
+  );
+  $form['interest_rate'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Interest Rate'),
+    '#default_value' => (isset($calculation->interest_rate) ? $calculation->interest_rate : '4.25'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('%'),
+  );
+  $form['property_tax'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Property Tax'),
+    '#default_value' => (isset($calculation->property_tax) ? $calculation->property_tax : '3000'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('$ Per Year'),
+  );
+  $form['property_insurance'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Property Insurance'),
+    '#default_value' => (isset($calculation->property_insurance) ? $calculation->property_insurance : '1500'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('$ Per Year'),
+  );
+  $form['pmi'] = array(
+    '#type' => 'textfield',
+    '#title' => t('PMI'),
+    '#default_value' => (isset($calculation->pmi) ? $calculation->pmi : '0.52'),
+    '#size' => 10,
+    '#maxlength' => 64,
+    '#description' => t('%'),
+  );
+  $form['zip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Zip Code'),
+    '#default_value' => (isset($calculation->zip) ? $calculation->zip : '75662'),
+    '#size' => 10,
+    '#maxlength' => 64,
+  );
+  $form['first_payment'] = array(
+    '#type' => 'date_select',
+    '#title' => t('First Payment Date'),
+    '#date_format' => 'm-Y',
+    '#default_value' => (isset($calculation->first_payment) ? date('m-Y', strtotime($calculation->first_payment)) : date('m-Y')),
+  );
+  $form['loan_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Loan Type'),
+    '#options' => array(
+      'mortgage' => t('Mortgage'),
+      'loan' => t('Loan'),
+    ),
+    '#default_value' => (isset($calculation->loan_type) ? $calculation->loan_type : 'Mortgage'),
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Calculate')
+  );
+  return $form;
+}
+
+function mortgage_calculation_form_validate($form, &$form_state) {
+
+  $form_state['values']['loan_amount'] = str_replace(',', '', $form_state['values']['loan_amount']);
+  if ($form_state['values']['loan_amount'] == '' || $form_state['values']['loan_amount'] <= 0 ) {
+    form_set_error('mortgage_term', t('Please enter a loan amount.'));
+  }
+
+  $form_state['values']['down_payment_percent'] = str_replace('%', '', $form_state['values']['down_payment_percent']);
+  if ($form_state['values']['down_payment_percent'] == '' || !is_numeric($form_state['values']['down_payment_percent']) || $form_state['values']['down_payment_percent'] < 0) {
+    form_set_error('mortgage_term', t('Please enter a valid down payment.'));
+  }
+
+  if ($form_state['values']['term'] == '' || !is_numeric($form_state['values']['term']) || $form_state['values']['term'] <= 0) {
+    form_set_error('mortgage_term', t('Please enter a value of years to pay.'));
+  }
+
+  $form_state['values']['interest_rate'] = str_replace('%', '', $form_state['values']['interest_rate']);
+  if ($form_state['values']['interest_rate'] == '' || !is_numeric($form_state['values']['interest_rate']) || $form_state['values']['interest_rate'] < 0) {
+    form_set_error('mortgage_term', t('Please enter a valid interest rate.'));
+  }
+
+  if ($form_state['values']['property_tax'] == '' || !is_numeric($form_state['values']['property_tax']) || $form_state['values']['property_tax'] < 0) {
+    form_set_error('mortgage_term', t('Please enter a valid property tax rate.'));
+  }
+
+  if ($form_state['values']['property_insurance'] == '' || !is_numeric($form_state['values']['property_insurance']) || $form_state['values']['property_insurance'] < 0) {
+    form_set_error('mortgage_term', t('Please enter a valid property insurance rate.'));
+  }
+
+  $form_state['values']['pmi'] = str_replace('%', '', $form_state['values']['pmi']);
+  if ($form_state['values']['pmi'] == '' || !is_numeric($form_state['values']['pmi']) || $form_state['values']['pmi'] < 0) {
+    form_set_error('mortgage_term', t('Please enter a valid PMI rate.'));
+  }
+
+  if ($form_state['values']['zip'] == '' || !is_numeric($form_state['values']['zip']) || $form_state['values']['zip'] <= 0) {
+    form_set_error('mortgage_term', t('Please enter a zip code.'));
+  }
+
+}
+
+function mortgage_calculation_form_submit($form, &$form_state) {
+  $loan_type = $form_state['values']['loan_type'];
+
+  if($loan_type == "mortgage") {
+    $entity = entity_create('mortgage_calculation',
+      array(
+        'type' => 'mortgage_calculation',
+        'title' => $form_state['values']['title'],
+        'loan_amount' => $form_state['values']['loan_amount'],
+        'down_payment_percent' => $form_state['values']['down_payment_percent'],
+        'term' => $form_state['values']['term'],
+        'interest_rate' => $form_state['values']['interest_rate'],
+        'property_tax' => $form_state['values']['property_tax'],
+        'property_insurance' => $form_state['values']['property_insurance'],
+        'pmi' => $form_state['values']['pmi'],
+        'zip' => $form_state['values']['zip'],
+        'first_payment' => $form_state['values']['first_payment'],
+        'loan_type' => $loan_type,
+        ));
+  } else {
+    $entity = entity_create('mortgage_calculation',
+      array(
+        'type' => 'mortgage_calculation',
+        'title' => $form_state['values']['title'],
+        'loan_amount' => $form_state['values']['loan_amount'],
+        'down_payment_percent' => '0',
+        'term' => $form_state['values']['term'],
+        'interest_rate' => $form_state['values']['interest_rate'],
+        'property_tax' => '0',
+        'property_insurance' => '0',
+        'pmi' => '0',
+        'zip' => $form_state['values']['zip'],
+        'first_payment' => $form_state['values']['first_payment'],
+        'loan_type' => $loan_type,
+        ));
+  }
+  entity_save('mortgage_calculation', $entity);
+  $form_state['redirect'] = 'resources/loan-calculator/' . $entity->cid;
+}
+
+function mortgage_calculation_menu() {
+  $items = array();
+
+  $items['resources/loan-calculator'] = array(
+    'title' => t('Loan Calculator'),
+    'page callback' => 'mortgage_calculation_page',
+    'access arguments' => array('access content'),
+  );
+  $items['resources/loan-calculator/%'] = array(
+    'title' => t('Loan Calculator'),
+    'page callback' => 'mortgage_calculation_page',
+    'access arguments' => array('access content'),
+    'page arguments' => array(2),
+  );
+
+  return $items;
+}
+
+function mortgage_calculation_page($args = 1) { // Set to default calculation
+  drupal_add_js('https://www.google.com/jsapi', 'external');
+  drupal_add_js(drupal_get_path('module', 'mortgage_calculation') .'/mortgage_calculation.js');
+  return theme('mortgage_calculation_page', array('cid' => $args));
+}
+
+/**
+* Implementation of hook_theme()
+*/
+function mortgage_calculation_theme($existing, $type, $theme, $path) {
+  return array(
+    'mortgage_calculation_page' => array(
+      'variables' => array('cid' => NULL),
+      'template' => 'mortgage-calculation-page',
+    ),
+  );
+}
+
+/**
+ * Preprocess function
+ */
+function template_preprocess_mortgage_calculation_page(&$variables) {
+  $calculation = mortgage_calculation_load($variables['cid']);
+
+  if(!$calculation)
+    drupal_not_found();
+
+  $data = mortgage_calculation_calculation($calculation);
+  $variables += $data;
+  drupal_add_js(array('mortgage_calculation' => array('data' => $data)), array('type' => 'setting'));
+}
+
+function mortgage_calculation_calculation($calculation) {
+  // Pull vals from calculation entity
+  $title                = $calculation->title;
+  $loan_amount          = $calculation->loan_amount;
+  $down_payment_percent = $calculation->down_payment_percent;
+  $amount_after_down    = $calculation->loan_amount * (100 - $down_payment_percent) / 100;
+  $term                 = $calculation->term;
+  $rate                 = $calculation->interest_rate;
+  $property_tax         = $calculation->property_tax;
+  $property_insurance   = $calculation->property_insurance;
+  $pmi_percent          = $calculation->pmi;
+  $zip                  = $calculation->zip;
+  $first_payment        = $calculation->first_payment;
+  $loan_type            = $calculation->loan_type;
+
+  // Set some vars
+  $unixdate             = strtotime($calculation->first_payment);
+  $rate_per             = ($rate / 100) / 12;
+  $number_of_payments   = $calculation->term * 12;
+
+  // Var initialization
+  $has_pmi = false;
+  $pmi_end_date = false;
+  $pmi_payment = 0;
+  $total_payment_with_pmi = 0;
+  $payoff_date = "";
+
+  // Calculate Payment
+  if($loan_type == "mortgage") {
+    // No interest if there's no rate
+    if($rate != 0) {
+      $payment = ($amount_after_down * ($rate_per / (1 - pow(1 + $rate_per, -$number_of_payments))));
+    } else {
+      $payment = $amount_after_down / $number_of_payments;
+    }
+  } else {
+    // No interest if there's no rate
+    if($rate != 0) {
+      $payment = ($loan_amount * ($rate_per / (1 - pow(1 + $rate_per, -$number_of_payments))));
+    } else {
+      $payment = $loan_amount / $number_of_payments;
+    }
+  }
+
+
+  // Set total monthly payment
+  if ($loan_type == "mortgage") {
+    $total_payment = $payment + ($property_tax + $property_insurance)/12;
+  } else {
+    $total_payment = $payment;
+  }
+
+  if($loan_type == "mortgage" && $down_payment_percent < 20) { // Check if PMI needs to be added
+    $pmi_rate_per = ($pmi_percent / 100) / 12; // PMI percentage per month
+    $has_pmi = true;
+    $pmi_per_month = $pmi_rate_per * $amount_after_down; // PMI cost per month
+    $total_payment_with_pmi = $payment + ($property_tax + $property_insurance)/12 + $pmi_per_month; // Total payment with PMI
+  }
+
+  // Var initialization
+  if($loan_type == "mortgage") {
+    $remaining_balance = $amount_after_down;
+  } else {
+    $remaining_balance = $loan_amount;
+  }
+  $prev_year = date('Y', $unixdate);
+  $rows = array();
+
+  $add_interest     = 0;
+  $add_principal    = 0;
+  $add_additional   = 0;
+  $total_paid       = 0;
+  $total_principal  = 0;
+  $total_interest   = 0;
+  $total_additional = 0;
+
+  // Set Column Labels
+  if($loan_type == "loan") {
+    $columns = array("Year", "Principal", "Interest", "Balance");
+  } elseif ($loan_type == "mortgage") {
+    if($has_pmi) {
+      $columns = array("Year", "Principal", "Interest", "Tax, Insurance & PMI", "Balance");
+    } else {
+      $columns = array("Year", "Principal", "Interest", "Tax & Insurance", "Balance");
+    }
+  }
+
+  // Loop through payments
+  for($i=0; $i < $number_of_payments; $i++) {
+    // Payment calculations
+    $interest   = $rate_per * $remaining_balance;
+    $year       = date('Y', strtotime("+" . $i . " Month", $unixdate));
+    $principal  = $payment - $interest;
+
+    // If Loan Type is mortgage
+    if($loan_type == "mortgage") {
+      // Set additional cost with/without PMI
+      if($has_pmi && $remaining_balance > ($loan_amount * 80/100)) {
+        $additional     = ($property_tax + $property_insurance)/12 + $pmi_per_month;
+      } else {
+        $additional     = ($property_tax + $property_insurance)/12;
+      }
+
+      // Stop PMI when the remaining loan amoutn is less than 80% of the loan
+      if($has_pmi && $remaining_balance <= ($loan_amount * 80/100)) {
+        $pmi_end_date = date('M, Y', strtotime("+" . $i-1 . " Month", $unixdate));
+        $has_pmi = false;
+      }
+    }
+
+    // Once the year finishes, place added monthly payments into the array
+    if($year != $prev_year) {
+
+      if($loan_type == "mortgage") { // If Loan Type is mortgage
+        $rows[] = array(
+          'year'       => $prev_year,
+          'principal'  => number_format($add_principal, 2, '.', ''),
+          'interest'   => number_format($add_interest, 2, '.', ''),
+          'additional' => number_format($add_additional, 2, '.', ''),
+          'balance'    => number_format($remaining_balance, 2, '.', '')
+        );
+      } else { // If Loan Type is loan
+        $rows[] = array(
+          'year'       => $prev_year,
+          'principal'  => number_format($add_principal, 2, '.', ''),
+          'interest'   => number_format($add_interest, 2, '.', ''),
+          'balance'    => number_format($remaining_balance, 2, '.', '')
+        );
+      }
+
+      // Unset additive variables
+      $prev_year = $year;
+      $add_interest   = 0;
+      $add_principal  = 0;
+
+      // If Loan Type is mortgage
+      if($loan_type == "mortgage") {
+        $add_additional = 0;
+      }
+    }
+
+    // Add payment to additive vars to calculate how much per year
+    $add_interest      += $interest;
+    $add_principal     += $principal;
+    // If Loan Type is mortgage
+    if($loan_type == "mortgage") {
+      $add_additional    += $additional;
+    }
+    $remaining_balance -= $principal;
+
+    // Calculate total amounts paid
+    $total_principal   += $principal;
+    $total_interest    += $interest;
+    // If Loan Type is mortgage
+    if($loan_type == "mortgage") {
+      $total_additional  += $additional;
+      $total_paid        += $payment + $additional;
+    } else {
+      $total_paid        += $payment;
+    }
+
+    if($i+1 == $number_of_payments) { // Last Payment
+      // Insert last payment into the array
+
+      if($loan_type == "mortgage") { // If Loan Type is mortgage
+        $rows[] = array(
+          'year'       => $prev_year,
+          'principal'  => number_format($add_principal, 2, '.', ''),
+          'interest'   => number_format($add_interest, 2, '.', ''),
+          'additional' => number_format($add_additional, 2, '.', ''),
+          'balance'    => number_format($remaining_balance, 2, '.', '')
+        );
+      } else { // If Loan Type is loan
+        $rows[] = array(
+          'year'       => $prev_year,
+          'principal'  => number_format($add_principal, 2, '.', ''),
+          'interest'   => number_format($add_interest, 2, '.', ''),
+          'balance'    => number_format($remaining_balance, 2, '.', '')
+        );
+      }
+
+      // Set payoff date
+      $payoff_date = date('M, Y', strtotime("+" . $i . " Month", $unixdate));
+    }
+  }
+
+  // Pass data to theme
+  return array('rows' => $rows, 'info' => array(
+    'columns'                => $columns,
+    'payoff_date'            => $payoff_date,
+    'number_of_payments'     => $number_of_payments,
+    'total_principal'        => $total_principal,
+    'total_interest'         => $total_interest,
+    'total_additional'       => $total_additional,
+    'total_paid'             => $total_paid,
+    'total_payment'          => $total_payment,
+    'total_payment_with_pmi' => $total_payment_with_pmi,
+    'pmi_end_date'           => $pmi_end_date,
+    'loan_type'              => $loan_type,
+    'calculation_title'      => $title,
+  ));
+}
+
+
